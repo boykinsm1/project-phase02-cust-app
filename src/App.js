@@ -10,7 +10,7 @@ export function App(params) {
   let blankCustomer = { id: -1, name: "", email: "", password: "" };
   const [customers, setCustomers] = useState([]);
   const [formObject, setFormObject] = useState(blankCustomer);
-  let mode = formObject.id >= 0 ? "Update" : "Add";
+  let mode = formObject.id >= 0 ? "Update" : "Add"
   useEffect(() => {
     getCustomers();
   }, []);
