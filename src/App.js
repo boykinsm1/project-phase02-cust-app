@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { getAll, post, put, deleteById } from "./memdb.js";
+import { getAll, post, put, deleteById } from "./restdb.js";
 import "./App.css";
+import { CustomerList } from "./components/CustomerList.js";
+import {CustomerAddUpdateForm} from "./components/CustomerAddUpdateForm.js";
+
 
 function log(message) {
   console.log(message);
@@ -11,14 +14,17 @@ export function App(params) {
   const [customers, setCustomers] = useState([]);
   const [formObject, setFormObject] = useState(blankCustomer);
   let mode = formObject.id >= 0 ? "Update" : "Add";
-  useEffect(() => {
-    getCustomers();
-  }, []);
-
-  const getCustomers = function () {
+  useEffect(() => { getCustomers() }, []);
+    const getCustomers = async function() {
     log("in getCustomers()");
-    setCustomers(getAll());
-  };
+    try {
+      const data = await getAll();
+      setCustomers(data);
+    } catch (error) {
+      console.error('Failed to fetch customers:', error);
+    }
+  }
+  
 
   const handleListClick = function (item) {
   log("in handleListClick()");
@@ -43,112 +49,66 @@ export function App(params) {
     setFormObject(blankCustomer);
   };
 
-  let onDeleteClick = function () {
-    if (formObject.id >= 0) {
-      deleteById(formObject.id);
-    }
-    setFormObject(blankCustomer);
-  };
+  let onDeleteClick = async function () {
+    log("in onDeleteClick()");
+    if(formObject.id >= 0){
+      try {
+        await deleteById(formObject.id);
+        await getCustomers(); // Refresh the list after deletion
+        setFormObject(blankCustomer);
+      } catch (error) {
+        console.error('Failed to delete customer:', error);
+      }    }
+  }  
 
-  let onSaveClick = function () {
+  let onSaveClick = async function () {
     log("in onSaveClick()");
     if (mode === 'Add') {
-      if (formObject.name === '' || formObject.email === '' || formObject.password === '') {
+      if (
+        formObject.name === '' ||
+        formObject.email === '' ||
+        formObject.password === ''
+      ) {
         setFormObject(blankCustomer);
-      return;
+        return;
+      }
     }
-    post(formObject);
+    try {
+      if (mode === 'Add') {
+        // Create a new object without the id field for new customers
+        const { id, ...customerWithoutId } = formObject;
+        await post(customerWithoutId);
+      }
+      if (mode === 'Update') {
+        await put(formObject.id, formObject);
+      }
+      await getCustomers(); // Refresh the list after save
+      setFormObject(blankCustomer);
+    } catch (error) {
+      console.error('Failed to save customer:', error);
     }
-    if (mode === 'Update') {
-      put(formObject.id, formObject);
-    } 
-    setFormObject(blankCustomer);
   }
 
   return (
     <div>
-      <div className="boxed">
-        <h4>Customer List</h4>
-        <table id="customer-list">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Pass</th>
-            </tr>
-          </thead>
-          <tbody>
-            {customers.map((item, index) => {
-              return (<tr key={item.id}
-              className={item.id === formObject.id ? "selected" : ""}
-              onClick={() => handleListClick(item)}
-                >
-                  <td>{item.name}</td>
-                  <td>{item.email}</td>
-                  <td>{item.password}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div className="boxed">
-        <div>
-          <h4>{mode}</h4>
-        </div>
-        <form>
-          <table id="customer-add-update">
-            <tbody>
-              <tr>
-                <td className={"label"}>Name:</td>
-                <td>
-                  <input
-                    type="text"
-                    name="name"
-                    onChange={(e) => handleInputChange(e)}
-                    value={formObject.name}
-                    placeholder="Customer Name"
-                    required
-                  />
-                </td>
-              </tr>
-              <tr>
-                <td className={"label"}>Email:</td>
-                <td>
-                  <input
-                    type="email"
-                    name="email"
-                    onChange={(e) => handleInputChange(e)}
-                    value={formObject.email}
-                    placeholder="name@company.com"
-                  />
-                </td>
-              </tr>
-              <tr>
-                <td className={"label"}>Pass:</td>
-                <td>
-                  <input
-                    type="password"
-                    name="password"
-                    onChange={(e) => handleInputChange(e)}
-                    value={formObject.password}
-                    placeholder="password"
-                  />
-                </td>
-              </tr>
-              <tr className="button-bar">
-                <td colSpan="2">
-                  <input type="button" value="Delete" onClick={onDeleteClick} />
-                  <input type="button" value="Save" onClick={onSaveClick} />
-                  <input type="button" value="Cancel" onClick={onCancelClick} />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </form>
+      <CustomerList
+        customers={customers}
+        selectedCustomerId={formObject.id}
+        onItemClick={handleListClick}
+      />
+      <div>
+        <CustomerAddUpdateForm
+          mode={mode}
+          formObject={formObject}
+          onInputChange={handleInputChange}  
+          onDeleteClick={onDeleteClick}
+          onSaveClick={onSaveClick}
+          onCancelClick={onCancelClick}
+        />
       </div>
     </div>
   );
-}
+}  
 
 export default App;
+
